@@ -1,76 +1,162 @@
-# analise.R
-# Script simples de análise de dados para demonstração de versionamento no GitHub
+## analise.R - Versão 1.0
+# Script de análise de dados municipais
+# Autor: [Murilo Rocha Souto Maior]
+# Data: 2026-03-23
 
-# Carregar bibliotecas necessárias
-library(dplyr)
-library(ggplot2)
+# ============================================
+# 1. CONFIGURAÇÃO INICIAL
+# ============================================
 
-# Criar um dataset de exemplo
-set.seed(123)  # Para reprodutibilidade
+# Limpar ambiente
+rm(list = ls())
+cat("\014")  # Limpar console
 
-dados <- data.frame(
-  municipio = paste0("Município_", 1:50),
-  populacao = round(runif(50, 5000, 500000), 0),
-  pib_per_capita = round(runif(50, 5000, 50000), 0),
-  regiao = sample(c("Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"), 
-                  50, replace = TRUE)
+# Definir seed para reprodutibilidade
+set.seed(123)
+
+# Mensagem de início
+cat("========================================\n")
+cat("INICIANDO ANÁLISE DE DADOS MUNICIPAIS\n")
+cat("========================================\n\n")
+
+# ============================================
+# 2. CARREGAR BIBLIOTECAS
+# ============================================
+
+# Verificar e instalar pacotes se necessário
+pacotes <- c("dplyr", "ggplot2", "tidyr", "knitr")
+
+for(pacote in pacotes) {
+  if(!require(pacote, character.only = TRUE)) {
+    install.packages(pacote)
+    library(pacote, character.only = TRUE)
+  }
+}
+
+cat("✓ Bibliotecas carregadas com sucesso\n\n")
+
+# ============================================
+# 3. CRIAR DATASET DE EXEMPLO
+# ============================================
+
+cat("Criando dataset de exemplo...\n")
+
+# Lista de municípios brasileiros (amostra)
+municipios <- c(
+  "São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Fortaleza",
+  "Belo Horizonte", "Manaus", "Curitiba", "Recife", "Porto Alegre",
+  "Belém", "Goiânia", "Campinas", "São Luís", "Maceió",
+  "Natal", "Teresina", "Campo Grande", "João Pessoa", "Aracaju"
 )
 
-# Estatísticas descritivas
-cat("=== ESTATÍSTICAS DESCRITIVAS ===\n")
-cat("\nPopulação:\n")
+# Gerar dados
+dados <- data.frame(
+  municipio = municipios,
+  populacao = round(runif(20, 50000, 12000000), 0),
+  area_km2 = round(runif(20, 100, 8000), 0),
+  idh = round(runif(20, 0.6, 0.85), 3),
+  pib_per_capita = round(runif(20, 8000, 60000), 0),
+  regiao = sample(c("Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"), 
+                  20, replace = TRUE),
+  stringsAsFactors = FALSE
+)
+
+# Calcular densidade demográfica
+dados$densidade <- round(dados$populacao / dados$area_km2, 2)
+
+cat("✓ Dataset criado com", nrow(dados), "municípios\n\n")
+
+# ============================================
+# 4. ESTATÍSTICAS DESCRITIVAS BÁSICAS
+# ============================================
+
+cat("========================================\n")
+cat("ESTATÍSTICAS DESCRITIVAS\n")
+cat("========================================\n\n")
+
+# Resumo das variáveis numéricas
+cat("Resumo da População:\n")
 print(summary(dados$populacao))
 
-cat("\nPIB per capita:\n")
+cat("\nResumo do IDH:\n")
+print(summary(dados$idh))
+
+cat("\nResumo do PIB per capita:\n")
 print(summary(dados$pib_per_capita))
 
-# Resumo por região
-resumo_regiao <- dados %>%
+cat("\nResumo da Densidade Demográfica (hab/km²):\n")
+print(summary(dados$densidade))
+
+# ============================================
+# 5. ANÁLISE POR REGIÃO
+# ============================================
+
+cat("\n========================================\n")
+cat("ANÁLISE POR REGIÃO\n")
+cat("========================================\n\n")
+
+analise_regiao <- dados %>%
   group_by(regiao) %>%
   summarise(
+    n_municipios = n(),
     populacao_media = mean(populacao),
-    pib_per_capita_medio = mean(pib_per_capita),
-    n_municipios = n()
+    populacao_total = sum(populacao),
+    idh_medio = mean(idh),
+    pib_medio = mean(pib_per_capita),
+    densidade_media = mean(densidade),
+    .groups = 'drop'
   ) %>%
-  arrange(desc(populacao_media))
+  arrange(desc(populacao_total))
 
-cat("\n=== RESUMO POR REGIÃO ===\n")
-print(resumo_regiao)
+print(analise_regiao)
 
-# Criar gráfico de barras
-ggplot(dados, aes(x = reorder(regiao, -populacao), y = populacao)) +
-  geom_col(fill = "steelblue", alpha = 0.7) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    title = "População Média por Região",
-    x = "Região",
-    y = "População Média"
-  )
+# ============================================
+# 6. TOP 10 MUNICÍPIOS
+# ============================================
 
-# Salvar gráfico
-ggsave("populacao_por_regiao.png", width = 8, height = 6, dpi = 300)
+cat("\n========================================\n")
+cat("TOP 10 MUNICÍPIOS\n")
+cat("========================================\n\n")
 
-# Criar gráfico de dispersão
-ggplot(dados, aes(x = populacao, y = pib_per_capita, color = regiao)) +
-  geom_point(size = 3, alpha = 0.7) +
-  theme_minimal() +
-  labs(
-    title = "Relação entre População e PIB per capita",
-    x = "População",
-    y = "PIB per capita (R$)",
-    color = "Região"
-  )
+# Top 10 por população
+top10_pop <- dados %>%
+  arrange(desc(populacao)) %>%
+  select(municipio, regiao, populacao, idh, pib_per_capita) %>%
+  head(10)
 
-# Salvar gráfico
-ggsave("pib_vs_populacao.png", width = 8, height = 6, dpi = 300)
+cat("TOP 10 MUNICÍPIOS POR POPULAÇÃO:\n")
+print(top10_pop)
 
-# Mensagem final
-cat("\n=== ANÁLISE CONCLUÍDA ===\n")
-cat("Gráficos salvos como:\n")
-cat("- populacao_por_regiao.png\n")
-cat("- pib_vs_populacao.png\n")
-cat("\nTotal de municípios analisados:", nrow(dados))
+# Top 10 por IDH
+top10_idh <- dados %>%
+  arrange(desc(idh)) %>%
+  select(municipio, regiao, idh, populacao, pib_per_capita) %>%
+  head(10)
+
+cat("\nTOP 10 MUNICÍPIOS POR IDH:\n")
+print(top10_idh)
+
+# ============================================
+# 7. CORRELAÇÕES
+# ============================================
+
+cat("\n========================================\n")
+cat("CORRELAÇÕES\n")
+cat("========================================\n\n")
+
+correlacoes <- cor(dados[, c("populacao", "idh", "pib_per_capita", "densidade")])
+print(round(correlacoes, 3))
+
+# ============================================
+# 8. MENSAGEM FINAL
+# ============================================
+
+cat("\n========================================\n")
+cat("✓ ANÁLISE CONCLUÍDA COM SUCESSO!\n")
+cat("========================================\n")
+cat("Total de municípios analisados:", nrow(dados), "\n")
+cat("Total de regiões:", length(unique(dados$regiao)), "\n")
+cat("\nPróximos passos:\n")
+cat("- Criar visualizações gráficas\n")
+cat("- Exportar resultados para CSV\n")
+cat("- Realizar análises mais avançadas\n")
